@@ -1,117 +1,199 @@
-# Import All Modules
-
 import streamlit as st
 import os
-import time
-import langchain
-from langchain_community.document_loaders import PyMuPDFLoader
+
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
-from tavily import TavilyClient
-import pytesseract as pyt
-import numpy as np
-from langchain.messages import SystemMessage, HumanMessage
-from langchain.agents import create_agent
-
-#=================FRONT END===============
 
 
-st.title("AI Resume Generator")
-GOOGLE_API_KEY=st.sidebar.text_input("Google API Key",type='password')
-GROQ_API_KEY=st.sidebar.text_input("Groq API Key",type='password')
-TAVILY_API_KEY=st.sidebar.text_input("Tavily API Key",type='password')
+# =========================================================
+# PAGE CONFIG
+# =========================================================
+
+st.set_page_config(
+    page_title="AI Resume Generator",
+    page_icon="📄",
+    layout="wide"
+)
+
+
+# =========================================================
+# SIDEBAR - API KEYS
+# =========================================================
+
+st.sidebar.title("🔑 API Keys")
+
+GOOGLE_API_KEY = st.sidebar.text_input(
+    "Google API Key",
+    type="password",
+    placeholder="Paste your Google API key here"
+)
+
+GROQ_API_KEY = st.sidebar.text_input(
+    "Groq API Key",
+    type="password",
+    placeholder="Paste your Groq API key here"
+)
+
+
+# =========================================================
+# CHECK GOOGLE API KEY
+# =========================================================
 
 if not GOOGLE_API_KEY:
-  st.warning("Please Provide API Key For Google!!")
+    st.warning("Please Provide API Key For Google!!")
+    st.stop()
 
-#=================MODEL AND AGENT CODE============
 
-#Tool 1
-def search_latest_news_jobs(query):
-  """This function helps to get
-  latest news or latest jobs
-  related to user given query
-  using tavily"""
+# =========================================================
+# GOOGLE GEMINI MODEL
+# =========================================================
 
-  from tavily import TavilyClient
-  client = TavilyClient(api_key = TAVILY_API_KEY)
-  return client.search(query)
+try:
 
-model1 = ChatGoogleGenerativeAI(
-    model = "gemini-3.5-flash-lite",
-    google_api_key = GOOGLE_API_KEY
+    model1 = ChatGoogleGenerativeAI(
+        model="gemini-3.5-flash-lite",
+        google_api_key=GOOGLE_API_KEY
+    )
+
+except Exception as e:
+
+    st.error("❌ Google Gemini initialization failed.")
+    st.exception(e)
+    st.stop()
+
+
+# =========================================================
+# GROQ MODEL
+# =========================================================
+
+model2 = None
+
+if GROQ_API_KEY:
+
+    try:
+
+        model2 = ChatGroq(
+            model="llama-3.3-70b-versatile",
+            groq_api_key=GROQ_API_KEY
+        )
+
+    except Exception as e:
+
+        st.warning("⚠️ Groq model could not be initialized.")
+        st.exception(e)
+
+
+# =========================================================
+# MAIN APP
+# =========================================================
+
+st.title("📄 AI Resume Generator")
+
+st.write(
+    "Generate professional resume content using Google Gemini."
 )
 
-model2 = ChatGroq(
-    model = "qwen/qwen3.6-27b",
-    api_key = GROQ_API_KEY
+
+# =========================================================
+# USER INPUT
+# =========================================================
+
+name = st.text_input("Full Name")
+
+email = st.text_input("Email")
+
+phone = st.text_input("Phone Number")
+
+education = st.text_area(
+    "Education",
+    placeholder="Example: BCA, IITM IPU"
 )
 
-#============Agent with tool==============
-
-agent = create_agent(
-    model = model1,   # can be model2 also,
-    tools = [search_latest_news_jobs]
+skills = st.text_area(
+    "Skills",
+    placeholder="Example: Python, Generative AI, LangChain, AWS, Groq"
 )
 
-# Let's Generate Prompt for Resume using model
+experience = st.text_area(
+    "Experience",
+    placeholder="Enter your work experience..."
+)
+
+projects = st.text_area(
+    "Projects",
+    placeholder="Enter your projects..."
+)
 
 
-def prompt_generator():
-  prompt = """You are a helpful AI Resume
-  maker, I want you to use chain-of-thoughts
-  and give detailed prompt for model
-  where user want to generate resume
-  for fresher or experienced one
-  in HTML format, you have to give proper
-  set of instructions, and make sure to keep
-  design professional"""
+# =========================================================
+# GENERATE RESUME
+# =========================================================
 
-  response = model1.invoke(prompt)
-  prompt_ans = response.content[-1]['text']
-  # print(prompt_ans)
+if st.button("🚀 Generate Resume"):
 
-  file_name = 'prompt.txt'
-  with open(file_name, 'w') as f:
-    f.write(prompt_ans)
+    if not name:
+        st.error("Please enter your name.")
+        st.stop()
 
-prompt_generator()
+    prompt = f"""
+Create a professional resume for the following candidate.
+
+Name:
+{name}
+
+Email:
+{email}
+
+Phone:
+{phone}
+
+Education:
+{education}
+
+Skills:
+{skills}
+
+Experience:
+{experience}
+
+Projects:
+{projects}
+
+Create a clean, professional and ATS-friendly resume.
+
+Use these sections:
+
+1. Professional Summary
+2. Education
+3. Technical Skills
+4. Experience
+5. Projects
+6. Achievements
+7. Certifications
+
+Do not invent fake information.
+If information is missing, simply leave that section empty.
+"""
 
 
-# Final_Agent
-#Tool 2
-def prompt_reader():
-  with open('prompt.txt','r') as f:
-    prompt = f.read()
-  return prompt
+    # =====================================================
+    # CALL GEMINI
+    # =====================================================
 
+    try:
 
+        with st.spinner("Generating your resume..."):
 
-prompt = """I want complete Professional
-Resume with Dynamic Design using Advanced CSS and JS
-and must show user input details
-System instructions: Only Give HTML code as output"""
+            response = model1.invoke(prompt)
 
-final_prompt = prompt + prompt_reader()
+        st.success("✅ Resume Generated Successfully!")
 
+        st.markdown("## 📄 Generated Resume")
 
+        st.write(response.content)
 
-# Change this when required new resume by user, pass details
+    except Exception as e:
 
-user_info=st.text_input("Give Your Information")
-user_photo=st.sidebar.file_uploader("Upload Picture",type='image.jpeg')
+        st.error("❌ Gemini API Error")
 
-user_query = f"""Give Resume for Python Developer.
-  user details:{user_info}
-  use user profile image from given url: {user_photo}"""
-
-final_query = final_prompt + user_query
-
-
-
-if st.button("Generate Resume"):
-  with st.spinner("Ai Agent Creating Resume......"):
-
-    response = agent.invoke({'messages':[{'role':'user',"content":final_query}]})
-    code = response['messages'][-1].content[-1]['text']
-    st.html(code, width="stretch", unsafe_allow_javascript=True)
+        st.exception(e)
