@@ -1,3 +1,5 @@
+# Import All Modules
+
 import streamlit as st
 import os
 import time
@@ -11,21 +13,21 @@ import numpy as np
 from langchain.messages import SystemMessage, HumanMessage
 from langchain.agents import create_agent
 
+#=================FRONT END===============
 
-# ====================FRONTEND==================
-st.title("AI RESUME GENERATOR")
 
-GOOGLE_API_KEY = st.sidebar.text_input("Google Api Key", type = 'password')
-GROQ_API_KEY = st.sidebar.text_input("GROQ Api Key", type = 'password')
-TAVILY_API_KEY = st.sidebar.text_input("TAVILY Api Key", type = 'password')
+st.title("AI Resume Generator")
+GOOGLE_API_KEY=st.sidebar.text_input("Google API Key",type='password')
+GROQ_API_KEY=st.sidebar.text_input("Groq API Key",type='password')
+TAVILY_API_KEY=st.sidebar.text_input("Tavily API Key",type='password')
 
 if not GOOGLE_API_KEY:
-  st.warning("Provide Google Api Key")
+  st.warning("Please Provide API Key For Google!!")
 
+#=================MODEL AND AGENT CODE============
 
-# ===================MODEL and AGENT CODE=====================
-# Tool 1
-def search_latest_news_jobs():
+#Tool 1
+def search_latest_news_jobs(query):
   """This function helps to get
   latest news or latest jobs
   related to user given query
@@ -35,30 +37,27 @@ def search_latest_news_jobs():
   client = TavilyClient(api_key = TAVILY_API_KEY)
   return client.search(query)
 
-
-# Step 4: Model and Agent creation
 model1 = ChatGoogleGenerativeAI(
-    model = "gemini-3.5-flash-lite", 
+    model = "gemini-3.5-flash-lite",
     google_api_key = GOOGLE_API_KEY
-    )
+)
 
 model2 = ChatGroq(
-    model = "llama-3.3-70b-versatile", 
+    model = "qwen/qwen3.6-27b",
     api_key = GROQ_API_KEY
-    )
+)
 
-#============Agent with Tool===============
+#============Agent with tool==============
+
 agent = create_agent(
-    model = model1,          # can be model2 also
+    model = model1,   # can be model2 also,
     tools = [search_latest_news_jobs]
 )
 
+# Let's Generate Prompt for Resume using model
 
-
-# Let's Generate Prompt for Resume using Model
 
 def prompt_generator():
-
   prompt = """You are a helpful AI Resume
   maker, I want you to use chain-of-thoughts
   and give detailed prompt for model
@@ -80,43 +79,39 @@ prompt_generator()
 
 
 # Final_Agent
-
-# Tool 2
-
+#Tool 2
 def prompt_reader():
   with open('prompt.txt','r') as f:
     prompt = f.read()
   return prompt
 
-prompt = """I want complete Professional Resume with Dynamic Design using
-Advanced CSS and JS and must show user input details
-System instructions: Only Give HTML Code as Output"""
+
+
+prompt = """I want complete Professional
+Resume with Dynamic Design using Advanced CSS and JS
+and must show user input details
+System instructions: Only Give HTML code as output"""
 
 final_prompt = prompt + prompt_reader()
 
 
 
-
 # Change this when required new resume by user, pass details
 
-
-user_info = st.text_input("Give your information: ")
-
-user_photo = st.sidebar.file_uploader("Upload pic", type = 'image/jpeg')
+user_info=st.text_input("Give Your Information")
+user_photo=st.sidebar.file_uploader("Upload Picture",type='image.jpeg')
 
 user_query = f"""Give Resume for Python Developer.
-  user details : {user_info}
-  use user profile image from given {user_photo}"""
-
-
-
-
+  user details:{user_info}
+  use user profile image from given url: {user_photo}"""
 
 final_query = final_prompt + user_query
 
-if st.button ("Generate resume"):
-  with st.spinner("Agent creating Resume..."):
+
+
+if st.button("Generate Resume"):
+  with st.spinner("Ai Agent Creating Resume......"):
+
     response = agent.invoke({'messages':[{'role':'user',"content":final_query}]})
     code = response['messages'][-1].content[-1]['text']
-
-    st.html(code, width = "stretch", unsafe_allow_javascript=True)
+    st.html(code, width="stretch", unsafe_allow_javascript=True)
